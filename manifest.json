@@ -1,0 +1,17 @@
+{
+    "manifest_version": 3,
+    "name": "旅行攻略助手",
+    "version": "1.0",
+    "description": "自动识别城市名称并显示旅游攻略",
+    "permissions": [
+        "activeTab",
+        "storage"
+    ],
+    "content_scripts": [
+        {
+            "matches": ["<all_urls>"],
+            "js": ["content.js"],
+            "css": ["styles.css"]
+        }
+    ]
+} 

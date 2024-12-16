@@ -1,0 +1,156 @@
+.city-icon {
+    cursor: pointer;
+    padding: 5px;
+    background: white;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    z-index: 1000;
+    transition: transform 0.2s;
+}
+
+.city-icon:hover {
+    transform: scale(1.1);
+}
+
+.city-icon img {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+}
+
+.tooltip {
+    display: none;
+    position: absolute;
+    background: #333;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.city-icon:hover .tooltip {
+    display: block;
+}
+
+.travel-guides {
+    position: fixed;
+    right: 20px;
+    top: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    width: 350px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    z-index: 1001;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+.guides-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.guides-header h2 {
+    margin: 0;
+    font-size: 18px;
+    color: #333;
+}
+
+.close-button {
+    border: none;
+    background: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #666;
+    padding: 0 5px;
+}
+
+.guides-content {
+    padding: 15px;
+    overflow-y: auto;
+}
+
+.guide-item {
+    display: flex;
+    margin-bottom: 15px;
+    padding: 10px;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.2s;
+}
+
+.guide-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.guide-thumbnail img {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 4px;
+    margin-right: 15px;
+}
+
+.guide-info h3 {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+    color: #333;
+}
+
+.guide-source {
+    color: #666;
+    font-size: 12px;
+    margin: 5px 0;
+}
+
+.guide-date {
+    color: #999;
+    font-size: 12px;
+    margin: 0;
+}
+
+.loading-indicator {
+    position: absolute;
+    background: rgba(255,255,255,0.9);
+    padding: 5px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.error-message {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #ff4444;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 4px;
+    z-index: 1002;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translate(-50%, -20px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.no-guides {
+    text-align: center;
+    color: #666;
+    padding: 20px;
+} 

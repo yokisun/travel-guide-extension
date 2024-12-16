@@ -1,0 +1,386 @@
+// 定义主要的插件类
+class TravelGuidePlugin {
+    constructor() {
+        this.cities = new Set(['北京', '上海', '广州', '深圳', '成都', '杭州']); 
+        this.guideCache = new Map(); // 添加缓存
+        this.activeGuideList = null; // 追踪当前显示的攻略列表
+        this.debounceTimer = null;   // 用于节流
+        this.initializePlugin();
+    }
+
+    initializePlugin() {
+        // 使用节流处理的事件监听
+        document.addEventListener('mouseup', this.debounce(this.handleTextSelection.bind(this), 300));
+        document.addEventListener('input', this.debounce(this.handleInput.bind(this), 300));
+        // 添加点击外部关闭功能
+        document.addEventListener('click', this.handleOutsideClick.bind(this));
+    }
+
+    // 添加节流函数
+    debounce(func, wait) {
+        return (...args) => {
+            clearTimeout(this.debounceTimer);
+            this.debounceTimer = setTimeout(() => func.apply(this, args), wait);
+        };
+    }
+
+    handleOutsideClick(event) {
+        if (this.activeGuideList && 
+            !event.target.closest('.city-icon') && 
+            !event.target.closest('.travel-guides')) {
+            this.activeGuideList.remove();
+            this.activeGuideList = null;
+        }
+    }
+
+    handleTextSelection(event) {
+        const selectedText = window.getSelection().toString().trim();
+        if (this.cities.has(selectedText)) {
+            this.removeExistingIcons(); // 移除已存在的图标
+            this.showCityIcon(selectedText, event);
+        }
+    }
+
+    handleInput(event) {
+        const inputText = event.target.value;
+        this.removeExistingIcons();
+        for (const city of this.cities) {
+            if (inputText.includes(city)) {
+                this.showCityIcon(city, event);
+                break; // 只显示第一个匹配的城市
+            }
+        }
+    }
+
+    removeExistingIcons() {
+        document.querySelectorAll('.city-icon').forEach(icon => icon.remove());
+    }
+
+    showCityIcon(cityName, event) {
+        const icon = document.createElement('div');
+        icon.className = 'city-icon';
+        icon.innerHTML = `
+            <img src="icons/${cityName}.png" alt="${cityName}" onerror="this.src='icons/default.png'">
+            <div class="tooltip">查看${cityName}旅游攻略</div>
+            <div class="loading-indicator" style="display: none;">加载中...</div>
+        `;
+        
+        // 优化图标位置计算
+        const rect = event.target.getBoundingClientRect();
+        const scrollX = window.scrollX || window.pageXOffset;
+        const scrollY = window.scrollY || window.pageYOffset;
+        
+        icon.style.position = 'absolute';
+        icon.style.left = `${event.pageX + 10}px`;
+        icon.style.top = `${event.pageY + 10}px`;
+
+        // 确保图标在可视区域内
+        this.adjustIconPosition(icon);
+
+        icon.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const loadingIndicator = icon.querySelector('.loading-indicator');
+            loadingIndicator.style.display = 'block';
+            
+            try {
+                await this.showTravelGuides(cityName);
+            } catch (error) {
+                this.showError('获取攻略信息失败，请稍后重试');
+            } finally {
+                loadingIndicator.style.display = 'none';
+            }
+        });
+        
+        document.body.appendChild(icon);
+    }
+
+    adjustIconPosition(icon) {
+        setTimeout(() => {
+            const rect = icon.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            if (rect.right > viewportWidth) {
+                icon.style.left = `${viewportWidth - rect.width - 10}px`;
+            }
+            if (rect.bottom > viewportHeight) {
+                icon.style.top = `${viewportHeight - rect.height - 10}px`;
+            }
+        }, 0);
+    }
+
+    async showTravelGuides(cityName) {
+        // 关闭之前的攻略列表
+        if (this.activeGuideList) {
+            this.activeGuideList.remove();
+        }
+
+        let guides;
+        if (this.guideCache.has(cityName)) {
+            guides = this.guideCache.get(cityName);
+        } else {
+            guides = await this.fetchTravelGuides(cityName);
+            this.guideCache.set(cityName, guides);
+        }
+
+        const guideList = document.createElement('div');
+        guideList.className = 'travel-guides';
+        
+        // 添加标题栏和关闭按钮
+        guideList.innerHTML = `
+            <div class="guides-header">
+                <h2>${cityName}旅游攻略</h2>
+                <button class="close-button">×</button>
+            </div>
+            <div class="guides-content"></div>
+        `;
+
+        const guidesContent = guideList.querySelector('.guides-content');
+        
+        if (guides.length === 0) {
+            guidesContent.innerHTML = '<div class="no-guides">暂无相关攻略</div>';
+        } else {
+            guides.forEach(guide => {
+                const guideItem = document.createElement('a');
+                guideItem.href = guide.url;
+                guideItem.target = '_blank';
+                guideItem.className = 'guide-item';
+                guideItem.innerHTML = `
+                    <div class="guide-thumbnail">
+                        <img src="${guide.thumbnail}" alt="${guide.title}" onerror="this.src='icons/default-thumbnail.png'">
+                    </div>
+                    <div class="guide-info">
+                        <h3>${guide.title}</h3>
+                        <p class="guide-source">${guide.source}</p>
+                        <p class="guide-date">${guide.date || '最新'}</p>
+                    </div>
+                `;
+                guidesContent.appendChild(guideItem);
+            });
+        }
+
+        // 添加关闭按钮事件
+        guideList.querySelector('.close-button').addEventListener('click', () => {
+            guideList.remove();
+            this.activeGuideList = null;
+        });
+
+        document.body.appendChild(guideList);
+        this.activeGuideList = guideList;
+    }
+
+    async fetchTravelGuides(cityName) {
+        try {
+            // 模拟API调用
+            const response = await Promise.all([
+                this.fetchXiaohongshuGuides(cityName),
+                this.fetchMafengwoGuides(cityName)
+            ]);
+            
+            return response.flat().sort((a, b) => new Date(b.date) - new Date(a.date));
+        } catch (error) {
+            console.error('获取攻略失败:', error);
+            return [];
+        }
+    }
+
+    async fetchXiaohongshuGuides(cityName) {
+        // 模拟小红书API调用
+        return [
+            {
+                title: `${cityName}3日游攻略`,
+                url: 'https://www.xiaohongshu.com/...',
+                thumbnail: 'path/to/thumbnail.jpg',
+                source: '小红书',
+                date: new Date().toISOString()
+            }
+        ];
+    }
+
+    async fetchMafengwoGuides(cityName) {
+        // 模拟马蜂窝API调用
+        return [
+            {
+                title: `${cityName}必去景点推荐`,
+                url: 'https://www.mafengwo.cn/...',
+                thumbnail: 'path/to/thumbnail.jpg',
+                source: '马蜂窝',
+                date: new Date().toISOString()
+            }
+        ];
+    }
+
+    showError(message) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.textContent = message;
+        document.body.appendChild(errorDiv);
+        setTimeout(() => errorDiv.remove(), 3000);
+    }
+}
+
+// 添加样式
+const style = document.createElement('style');
+style.textContent = `
+    .city-icon {
+        cursor: pointer;
+        padding: 5px;
+        background: white;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        z-index: 1000;
+        transition: transform 0.2s;
+    }
+
+    .city-icon:hover {
+        transform: scale(1.1);
+    }
+
+    .city-icon img {
+        width: 24px;
+        height: 24px;
+        border-radius: 4px;
+    }
+
+    .tooltip {
+        display: none;
+        position: absolute;
+        background: #333;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-size: 12px;
+        white-space: nowrap;
+    }
+
+    .city-icon:hover .tooltip {
+        display: block;
+    }
+
+    .travel-guides {
+        position: fixed;
+        right: 20px;
+        top: 20px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        width: 350px;
+        max-height: 80vh;
+        display: flex;
+        flex-direction: column;
+        z-index: 1001;
+        animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+
+    .guides-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px;
+        border-bottom: 1px solid #eee;
+    }
+
+    .guides-header h2 {
+        margin: 0;
+        font-size: 18px;
+        color: #333;
+    }
+
+    .close-button {
+        border: none;
+        background: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #666;
+        padding: 0 5px;
+    }
+
+    .guides-content {
+        padding: 15px;
+        overflow-y: auto;
+    }
+
+    .guide-item {
+        display: flex;
+        margin-bottom: 15px;
+        padding: 10px;
+        border: 1px solid #eee;
+        border-radius: 8px;
+        text-decoration: none;
+        color: inherit;
+        transition: transform 0.2s;
+    }
+
+    .guide-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .guide-thumbnail img {
+        width: 100px;
+        height: 100px;
+        object-fit: cover;
+        border-radius: 4px;
+        margin-right: 15px;
+    }
+
+    .guide-info h3 {
+        margin: 0 0 8px 0;
+        font-size: 16px;
+        color: #333;
+    }
+
+    .guide-source {
+        color: #666;
+        font-size: 12px;
+        margin: 5px 0;
+    }
+
+    .guide-date {
+        color: #999;
+        font-size: 12px;
+        margin: 0;
+    }
+
+    .loading-indicator {
+        position: absolute;
+        background: rgba(255,255,255,0.9);
+        padding: 5px;
+        border-radius: 4px;
+        font-size: 12px;
+    }
+
+    .error-message {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #ff4444;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 4px;
+        z-index: 1002;
+        animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translate(-50%, -20px); }
+        to { opacity: 1; transform: translate(-50%, 0); }
+    }
+
+    .no-guides {
+        text-align: center;
+        color: #666;
+        padding: 20px;
+    }
+`;
+
+document.head.appendChild(style);
+
+// 初始化插件
+new TravelGuidePlugin();
